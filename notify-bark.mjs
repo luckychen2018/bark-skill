@@ -153,10 +153,17 @@ try {
   const res = await fetch(url, { signal: AbortSignal.timeout(10_000) });
   const json = await res.json();
   if (json.code === 200) {
-    console.log(JSON.stringify({decision: "allow", ok: true, chars: body.length}));
+    // Output valid JSON for Claude Code hook system compatibility
+    console.log(JSON.stringify({ok: true, chars: body.length}));
   } else {
-    console.log(JSON.stringify({decision: "allow", ok: false, error: `Bark API code ${json.code}`}));
+    const errMsg = JSON.stringify({ok: false, error: `Bark API returned code ${json.code}`, detail: json});
+    console.error(errMsg);
+    console.log(errMsg);
+    process.exit(1);
   }
 } catch (err) {
-  console.log(JSON.stringify({decision: "allow", ok: false, error: err.message || 'network error'}));
+  const errMsg = JSON.stringify({ok: false, error: err.message});
+  console.error(errMsg);
+  console.log(errMsg);
+  process.exit(1);
 }
