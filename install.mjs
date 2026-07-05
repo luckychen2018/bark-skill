@@ -128,8 +128,9 @@ async function main() {
   // ── Step 3: Configure the Stop hook ──────────────────────────
   heading('Step 3: Configure Stop hook');
 
+  // Stop hooks do NOT support "matcher" — that field is UserPromptSubmit-only.
+  // Including it causes "JSON validation failed" in Claude Code's hook engine.
   const hookEntry = {
-    matcher: '.*',
     hooks: [
       {
         type: 'command',

@@ -153,11 +153,14 @@ try {
   const res = await fetch(url, { signal: AbortSignal.timeout(10_000) });
   const json = await res.json();
   if (json.code === 200) {
-    // Output valid JSON for Claude Code hook system compatibility
-    console.log(JSON.stringify({decision: "allow", ok: true, chars: body.length}));
+    console.error(`[notify-bark] Sent OK (${body.length} chars)`);
   } else {
-    console.log(JSON.stringify({decision: "allow", ok: false, error: `Bark API code ${json.code}`}));
+    console.error(`[notify-bark] Bark API error: code=${json.code}`);
   }
 } catch (err) {
-  console.log(JSON.stringify({decision: "allow", ok: false, error: err.message || 'network error'}));
+  console.error(`[notify-bark] Network error: ${err.message || 'unknown'}`);
 }
+// Stop hook requires valid JSON stdout. Empty object = allow stop (pure notification).
+// "decision: allow" is INVALID for Stop hooks — only UserPromptSubmit accepts "allow".
+// Extra fields (ok, chars, error) are rejected by strict Stop hook schema validation.
+console.log("{}");
