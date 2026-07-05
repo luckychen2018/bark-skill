@@ -19,16 +19,36 @@ import { resolve, join } from 'node:path';
 import { homedir } from 'node:os';
 
 // ── Configuration ───────────────────────────────────────────────────
-const BARK_KEY = process.env.BARK_KEY;
+// Priority: CLI --key flag > BARK_KEY env var
+function parseArgs(argv) {
+  const args = { key: '', customTitle: '', customBody: '' };
+  for (let i = 0; i < argv.length; i++) {
+    if (argv[i] === '--key' && argv[i + 1]) {
+      args.key = argv[++i];
+    } else if (argv[i] === '--title' && argv[i + 1]) {
+      args.customTitle = argv[++i];
+    } else if (argv[i] === '--body' && argv[i + 1]) {
+      args.customBody = argv[++i];
+    } else if (i === 2 && !argv[i].startsWith('--')) {
+      // Legacy: first positional arg = custom body
+      args.customBody = argv[i];
+    }
+  }
+  return args;
+}
+
+const cliArgs = parseArgs(process.argv);
+const BARK_KEY = cliArgs.key || process.env.BARK_KEY;
 
 if (!BARK_KEY) {
-  console.error('[notify-bark] Missing BARK_KEY env var.');
-  console.error('  Get your key from the Bark iOS app → find URL like https://api.day.app/<key>');
-  console.error('  Then run: export BARK_KEY=your_key');
+  console.error('[notify-bark] Missing BARK_KEY.');
+  console.error('  Usage:');
+  console.error('    node notify-bark.mjs --key <your_bark_key>');
+  console.error('    or: export BARK_KEY=your_key');
   process.exit(1);
 }
 
-const BARK_URL = `https://api.day.app/${BARK_KEY}`;
+const BARK_URL = process.env.BARK_URL || `https://api.day.app/${BARK_KEY}`;
 
 // ── Find and read the most recent transcript ────────────────────────
 function findLatestTranscript() {
@@ -100,25 +120,33 @@ function summarize(text, maxLen = 200) {
 }
 
 // ── Main ────────────────────────────────────────────────────────────
-const transcriptPath = findLatestTranscript();
-let body = '✅ Claude Code 任务执行完毕'; // ✅ Claude Code task completed
+let body, title;
 
-let sessionId = '';
-if (transcriptPath) {
-  // Extract session ID from filename: .../<sessionId>.jsonl
-  const match = transcriptPath.match(/([a-f0-9-]{30,})\.jsonl$/);
-  if (match) sessionId = match[1].slice(0, 8);
+// If custom title/body provided, use them directly (skip transcript scanning)
+if (cliArgs.customTitle || cliArgs.customBody) {
+  title = cliArgs.customTitle || 'Claude Code';
+  body = cliArgs.customBody || 'Task completed';
+} else {
+  const transcriptPath = findLatestTranscript();
+  body = '✅ Claude Code 任务执行完毕'; // ✅ Claude Code task completed
 
-  const lastText = extractLastAssistantText(transcriptPath);
-  const summary = summarize(lastText);
-  if (summary) {
-    body = summary;
+  let sessionId = '';
+  if (transcriptPath) {
+    // Extract session ID from filename: .../<sessionId>.jsonl
+    const match = transcriptPath.match(/([a-f0-9-]{30,})\.jsonl$/);
+    if (match) sessionId = match[1].slice(0, 8);
+
+    const lastText = extractLastAssistantText(transcriptPath);
+    const summary = summarize(lastText);
+    if (summary) {
+      body = summary;
+    }
   }
-}
 
-const now = new Date();
-const time = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-const title = sessionId ? `Claude ${sessionId} ${time}` : `Claude Code ${time}`;
+  const now = new Date();
+  const time = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+  title = sessionId ? `Claude ${sessionId} ${time}` : `Claude Code ${time}`;
+}
 
 try {
   const url = `${BARK_URL}/${encodeURIComponent(title)}/${encodeURIComponent(body)}?sound=default`;

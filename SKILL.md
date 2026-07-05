@@ -16,34 +16,43 @@ After every Claude Code session ends, this skill sends a push notification to yo
 
 ## Quick Start
 
-### 1. Get your Bark key
-
-Install [Bark](https://apps.apple.com/app/bark/id1403753865) on your iPhone, open the app, copy your device key (a string like `AbCdEf123456`).
-
-在 iPhone 上安装 [Bark](https://apps.apple.com/app/bark/id1403753865)，打开 App 复制你的设备 Key。
-
-### 2. Install the script
+### One-click install (macOS / Linux / Windows)
 
 ```bash
-# Copy the notification script to your Claude config directory
-mkdir -p ~/.claude-to-im
-cp notify-bark.mjs ~/.claude-to-im/notify-bark.mjs
-
-# Set your Bark key as an environment variable
-export BARK_KEY=your_bark_key_here
+git clone https://gitee.com/secondwatch/Bark-skill
+cd Bark-skill
+node install.mjs
 ```
 
-### 3. Add the Stop hook
+安装脚本会引导你完成：输入 Bark Key → 复制脚本 → 配置 Hook → 安装 Skill → 发送测试通知。
 
-Add to `~/.claude/settings.json`:
+### Manual install
+
+<details>
+<summary>手动安装步骤</summary>
+
+#### 1. Get your Bark key
+
+Install [Bark](https://apps.apple.com/app/bark/id1403753865) on your iPhone → copy device key.
+
+在 iPhone 上安装 [Bark](https://apps.apple.com/app/bark/id1403753865)，复制设备 Key。
+
+#### 2. Install the script
+
+```bash
+mkdir -p ~/.claude-to-im
+cp notify-bark.mjs ~/.claude-to-im/notify-bark.mjs
+```
+
+#### 3. Add the Stop hook
 
 ```json
 "hooks": {
   "Stop": [{
-    "matcher": "",
+    "matcher": ".*",
     "hooks": [{
       "type": "command",
-      "command": "BARK_KEY=your_key node ~/.claude-to-im/notify-bark.mjs",
+      "command": "node \"~/.claude-to-im/notify-bark.mjs\" --key your_key",
       "async": true,
       "timeout": 10
     }]
@@ -51,19 +60,15 @@ Add to `~/.claude/settings.json`:
 }
 ```
 
-> ⚠️ If `hooks` already exists in your settings.json, **merge** into it — do NOT duplicate the key.
+> ⚠️ Merge into existing `hooks`, don't duplicate.
 
-> ⚠️ 如果 settings.json 中已有 `hooks` 键，请**合并**而非重复添加。
-
-### 4. Test it
+#### 4. Test
 
 ```bash
-BARK_KEY=your_key node ~/.claude-to-im/notify-bark.mjs
+node ~/.claude-to-im/notify-bark.mjs --key your_key
 ```
 
-If everything works, your iPhone will receive a test notification.
-
-运行测试命令，如果配置正确，你的 iPhone 会收到一条测试通知。
+</details>
 
 ## How it works
 
@@ -81,13 +86,15 @@ Claude session ends (Stop hook)
 
 | Config | Description | Default |
 |--------|-------------|---------|
-| `BARK_KEY` | Your Bark device key (required) | — |
+| `--key <key>` | Bark device key (CLI flag) | — |
+| `BARK_KEY` | Bark device key (env var) | — |
 | `BARK_URL` | Bark API endpoint | `https://api.day.app` |
+| `--title <text>` | Custom notification title | Auto-generated |
+| `--body <text>` | Custom notification body | Transcript summary |
 
-You can set `BARK_KEY` in:
-- Environment variable: `export BARK_KEY=xxx`
-- Hook command inline: `BARK_KEY=xxx node ~/.claude-to-im/notify-bark.mjs`
-- Shell profile: add `export BARK_KEY=xxx` to `~/.zshrc` or `~/.bashrc`
+Bark key sources (priority order):
+1. `--key` CLI flag
+2. `BARK_KEY` environment variable
 
 ## Troubleshooting
 
@@ -97,8 +104,8 @@ You can set `BARK_KEY` in:
 | Wrong content | Script reads most recently modified transcript; ensure session finished |
 | Duplicate notifications | One session exit = one notification. Manual tests also fire the hook |
 | Bark not receiving | Check iPhone has Bark installed; verify key at `https://api.day.app/<key>` |
-| `BARK_KEY` missing | Set env var or pass inline in the hook command |
-| 未收到通知 | 手动运行脚本测试；检查 iPhone 上 Bark 通知权限 |
+| `BARK_KEY` missing | Use `--key` flag or set env var |
+| 未收到通知 | 手动运行 `node ~/.claude-to-im/notify-bark.mjs --key xxx` 测试 |
 | 通知内容不对 | 脚本读取最近修改的 .jsonl 文件，确认目标会话已结束 |
 
 ## File Structure
@@ -107,6 +114,7 @@ You can set `BARK_KEY` in:
 bark-skill/
 ├── SKILL.md           # Claude Code skill definition
 ├── notify-bark.mjs    # Notification script (Node.js ESM)
+├── install.mjs        # One-click cross-platform installer
 ├── README.md          # Project overview & docs
 ├── LICENSE            # MIT
 └── .gitignore

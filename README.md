@@ -29,23 +29,44 @@ No more sitting around waiting — get notified the moment Claude is done.
 - [Bark](https://apps.apple.com/app/bark/id1403753865) iOS app installed on your iPhone
 - Node.js 18+ (for ESM support, `fetch` built-in)
 
-## Quick Start (2 min)
+## Quick Start (1 min)
 
-### Step 1: Get your Bark key
+### One-click install (macOS / Linux / Windows)
+
+```bash
+git clone https://gitee.com/secondwatch/Bark-skill
+cd Bark-skill
+node install.mjs
+```
+
+The installer will:
+1. Ask for your Bark key
+2. Copy the script to `~/.claude-to-im/`
+3. Add the Stop hook to `~/.claude/settings.json`
+4. Install the `/bark-notify` skill
+5. Send a test notification
+
+**Done.** Each time Claude Code finishes, your iPhone buzzes. 📱
+
+### Manual install
+
+<details>
+<summary>Click to expand manual steps</summary>
+
+#### Step 1: Get your Bark key
 
 1. Install [Bark](https://apps.apple.com/app/bark/id1403753865) on your iPhone
 2. Open Bark → copy your device key from the URL shown
 3. It looks like: `https://api.day.app/AbCdEf123456` — the key is `AbCdEf123456`
 
-### Step 2: Install the script
+#### Step 2: Install the script
 
 ```bash
-# Download and copy the script
 cp notify-bark.mjs ~/.claude-to-im/notify-bark.mjs
 chmod +x ~/.claude-to-im/notify-bark.mjs
 ```
 
-### Step 3: Add the Stop hook
+#### Step 3: Add the Stop hook
 
 Add this to `~/.claude/settings.json`:
 
@@ -53,10 +74,10 @@ Add this to `~/.claude/settings.json`:
 {
   "hooks": {
     "Stop": [{
-      "matcher": "",
+      "matcher": ".*",
       "hooks": [{
         "type": "command",
-        "command": "BARK_KEY=your_key_here node ~/.claude-to-im/notify-bark.mjs",
+        "command": "node \"~/.claude-to-im/notify-bark.mjs\" --key your_key_here",
         "async": true,
         "timeout": 10
       }]
@@ -67,13 +88,13 @@ Add this to `~/.claude/settings.json`:
 
 > ⚠️ If `hooks` already exists, **merge** the `Stop` entry — don't duplicate `hooks`.
 
-### Step 4: Test
+#### Step 4: Test
 
 ```bash
-BARK_KEY=your_key node ~/.claude-to-im/notify-bark.mjs
+node ~/.claude-to-im/notify-bark.mjs --key your_key
 ```
 
-Your iPhone will buzz. 📱
+</details>
 
 ## How It Works
 
@@ -107,9 +128,17 @@ Your iPhone will buzz. 📱
 
 ## Configuration
 
-### Environment variable (recommended)
+### `--key` flag (recommended for hooks)
 
-Add to `~/.zshrc` or `~/.bashrc`:
+```json
+"command": "node \"~/.claude-to-im/notify-bark.mjs\" --key your_bark_key"
+```
+
+This works on macOS, Linux, and Windows — no shell-specific syntax.
+
+### Environment variable
+
+Add to `~/.zshrc` (macOS/Linux) or set in System Environment Variables (Windows):
 
 ```bash
 export BARK_KEY=your_bark_key
@@ -121,17 +150,7 @@ Then the hook command is simply:
 "command": "node ~/.claude-to-im/notify-bark.mjs"
 ```
 
-### Inline in hook
-
-Pass `BARK_KEY` directly in the hook:
-
-```json
-"command": "BARK_KEY=your_key node ~/.claude-to-im/notify-bark.mjs"
-```
-
 ### Custom Bark server (self-hosted)
-
-If you run your own Bark server, set the `BARK_URL` env var:
 
 ```bash
 export BARK_URL=https://your-bark-server.com
@@ -141,13 +160,15 @@ export BARK_URL=https://your-bark-server.com
 
 ### Custom notification title/body
 
-You can pass a custom title and body directly:
-
 ```bash
-node ~/.claude-to-im/notify-bark.mjs "🎉 Build Done" "All tests passed"
+# Via CLI flags
+node notify-bark.mjs --key xxx --title "🎉 Build Done" --body "All tests passed"
+
+# Or: first positional arg = body (legacy)
+node notify-bark.mjs --key xxx "All tests passed"
 ```
 
-> Note: When arguments are passed, the script skips transcript scanning and sends them directly.
+> Note: When `--title` or `--body` is passed, the script skips transcript scanning.
 
 ### Pair with specific projects
 
