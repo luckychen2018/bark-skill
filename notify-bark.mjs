@@ -41,11 +41,9 @@ const cliArgs = parseArgs(process.argv);
 const BARK_KEY = cliArgs.key || process.env.BARK_KEY;
 
 if (!BARK_KEY) {
-  console.error('[notify-bark] Missing BARK_KEY.');
-  console.error('  Usage:');
-  console.error('    node notify-bark.mjs --key <your_bark_key>');
-  console.error('    or: export BARK_KEY=your_key');
-  process.exit(1);
+  // Silent fail — don't write anything to stdout/stderr.
+  // Claude Code Stop hook validates ALL output streams as JSON.
+  process.exit(0);
 }
 
 const BARK_URL = process.env.BARK_URL || `https://api.day.app/${BARK_KEY}`;
@@ -128,7 +126,7 @@ if (cliArgs.customTitle || cliArgs.customBody) {
   body = cliArgs.customBody || 'Task completed';
 } else {
   const transcriptPath = findLatestTranscript();
-  body = '✅ Claude Code 任务执行完毕'; // ✅ Claude Code task completed
+  body = '✅ Claude Code 任务执行完毕';
 
   let sessionId = '';
   if (transcriptPath) {
@@ -148,19 +146,17 @@ if (cliArgs.customTitle || cliArgs.customBody) {
   title = sessionId ? `Claude ${sessionId} ${time}` : `Claude Code ${time}`;
 }
 
+// Send Bark notification (fire-and-forget, no output)
 try {
   const url = `${BARK_URL}/${encodeURIComponent(title)}/${encodeURIComponent(body)}?sound=default`;
-  const res = await fetch(url, { signal: AbortSignal.timeout(10_000) });
-  const json = await res.json();
-  if (json.code === 200) {
-    console.error(`[notify-bark] Sent OK (${body.length} chars)`);
-  } else {
-    console.error(`[notify-bark] Bark API error: code=${json.code}`);
-  }
-} catch (err) {
-  console.error(`[notify-bark] Network error: ${err.message || 'unknown'}`);
+  await fetch(url, { signal: AbortSignal.timeout(10_000) });
+} catch (_) {
+  // Network errors: silent.
+  // Claude Code Stop hook validates ALL stdout/stderr as JSON.
+  // Any output = risk of "JSON validation failed".
 }
-// Stop hook requires valid JSON stdout. Empty object = allow stop (pure notification).
-// "decision: allow" is INVALID for Stop hooks — only UserPromptSubmit accepts "allow".
-// Extra fields (ok, chars, error) are rejected by strict Stop hook schema validation.
-console.log("{}");
+
+// DELIBERATELY NO CONSOLE OUTPUT.
+// Stop hook stdout/stderr is strictly validated by Claude Code's hook engine.
+// Even `console.error()` can trigger "JSON validation failed" in some versions.
+// Silent exit = implicit "allow stop".
