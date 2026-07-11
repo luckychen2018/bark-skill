@@ -1,18 +1,11 @@
 #!/usr/bin/env node
 /**
  * Claude Code task notification via Bark (iOS push).
- * Extracts the last assistant message from the session transcript
- * and sends it as a push notification to your iPhone.
- *
- * Usage:
- *   BARK_KEY=your_key node notify-bark.mjs
- *
- * Or set BARK_KEY in your environment:
- *   export BARK_KEY=your_key
- *   node notify-bark.mjs
- *
- * GitHub: https://github.com/luckychen2018/bark-skill
  */
+
+// Stop hook: suppress ALL output. Any stdout/stderr = JSON validation failure.
+process.on('unhandledRejection', () => process.exit(0));
+process.on('uncaughtException', () => process.exit(0));
 
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { resolve, join } from 'node:path';
@@ -156,7 +149,8 @@ try {
   // Any output = risk of "JSON validation failed".
 }
 
-// DELIBERATELY NO CONSOLE OUTPUT.
-// Stop hook stdout/stderr is strictly validated by Claude Code's hook engine.
-// Even `console.error()` can trigger "JSON validation failed" in some versions.
-// Silent exit = implicit "allow stop".
+// Stop hook stdout is validated as JSON by Claude Code's hook engine.
+// Empty string is NOT valid JSON — causes "JSON validation failed".
+// Must output valid JSON to satisfy the parser.
+process.stdout.write(JSON.stringify({status: "ok"}) + "\n");
+process.exit(0);
