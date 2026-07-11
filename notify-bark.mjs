@@ -144,7 +144,7 @@ if (cliArgs.customTitle || cliArgs.customBody) {
 // 1. Windows desktop notification + sound (runs regardless of Bark key)
 try {
   const winNotify = await import('./notify-windows.mjs');
-  if (!cliArgs.noSound) winNotify.playSound();
+  if (!cliArgs.noSound) await winNotify.playSound();
   if (!cliArgs.noToast) winNotify.showToast(title, body);
 } catch {
   // notify-windows.mjs not available — skip

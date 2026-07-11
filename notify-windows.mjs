@@ -35,11 +35,13 @@ function esc(s) {
 export async function playSound() {
   if (!isWindows()) return;
   try {
+    // PlaySync: blocks until sound finishes → JS await works correctly.
+    // Windows Notify Calendar: ~2.4s, pleasant notification chime.
     await spawnSilent('powershell', [
       '-NoProfile',
       '-NonInteractive',
       '-Command',
-      '[System.Media.SystemSounds]::Asterisk.Play()',
+      `(New-Object System.Media.SoundPlayer 'C:\\Windows\\Media\\Windows Notify Calendar.wav').PlaySync()`,
     ]);
   } catch {
     // silent fail
