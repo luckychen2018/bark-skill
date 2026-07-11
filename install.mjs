@@ -32,11 +32,13 @@ const HOME = homedir();
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SCRIPT_SRC = join(__dirname, 'notify-bark.mjs');
 const SKILL_SRC = join(__dirname, 'SKILL.md');
-const CLAUDE_TO_IM_DIR = join(HOME, '.claude-to-im');
-const SCRIPT_DEST = join(CLAUDE_TO_IM_DIR, 'notify-bark.mjs');
+const BARK_SKILL_DIR = join(HOME, '.bark-skill');
+const SCRIPT_DEST = join(BARK_SKILL_DIR, 'notify-bark.mjs');
 const SETTINGS_PATH = join(HOME, '.claude', 'settings.json');
 const SKILL_DIR = join(HOME, '.claude', 'skills', 'bark-notify');
 const SKILL_DEST = join(SKILL_DIR, 'SKILL.md');
+const WINDOWS_NOTIFY_SRC = join(__dirname, 'notify-windows.mjs');
+const WINDOWS_NOTIFY_DEST = join(BARK_SKILL_DIR, 'notify-windows.mjs');
 
 const GREEN = '\x1b[32m';
 const YELLOW = '\x1b[33m';
@@ -114,7 +116,7 @@ async function main() {
     process.exit(1);
   }
 
-  mkdirSync(CLAUDE_TO_IM_DIR, { recursive: true });
+  mkdirSync(BARK_SKILL_DIR, { recursive: true });
   copyFileSync(SCRIPT_SRC, SCRIPT_DEST);
 
   // Make executable on Unix
@@ -124,6 +126,14 @@ async function main() {
     // Windows — chmod is a no-op, ignore
   }
   success(`Copied → ${SCRIPT_DEST}`);
+
+  // Copy Windows notification helper (no chmod needed)
+  if (existsSync(WINDOWS_NOTIFY_SRC)) {
+    copyFileSync(WINDOWS_NOTIFY_SRC, WINDOWS_NOTIFY_DEST);
+    success(`Copied → ${WINDOWS_NOTIFY_DEST}`);
+  } else {
+    warn(`Windows notify helper not found: ${WINDOWS_NOTIFY_SRC} — skipping`);
+  }
 
   // ── Step 3: Configure the Stop hook ──────────────────────────
   heading('Step 3: Configure Stop hook');
@@ -219,6 +229,16 @@ async function main() {
         warn(`Bark API returned: ${JSON.stringify(json)}`);
         warn('Check your key and try again.');
       }
+
+      // Also test Windows toast + sound
+      try {
+        const winNotify = await import('./notify-windows.mjs');
+        winNotify.playSound();
+        winNotify.showToast(title, body);
+        success('Windows toast + sound test sent (check your desktop)');
+      } catch {
+        // notify-windows.mjs not available — skip
+      }
     } catch (err) {
       warn(`Could not send test notification: ${err.message}`);
       warn('You can test manually:');
@@ -232,6 +252,8 @@ async function main() {
   console.log('');
   console.log(`  ${BOLD}What happens next:${RESET}`);
   console.log(`  Each time Claude Code finishes a task, your iPhone will buzz.`);
+  console.log(`  On Windows: a desktop toast notification + sound plays automatically.`);
+  console.log(`  No extra config needed — it just works.`);
   console.log('');
   console.log(`  ${BOLD}Set BARK_KEY in your shell profile (optional):${RESET}`);
   console.log(`  Add this to your shell rc file:`);

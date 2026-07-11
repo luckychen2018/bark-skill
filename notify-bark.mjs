@@ -15,6 +15,8 @@ import { homedir } from 'node:os';
 // Priority: CLI --key flag > BARK_KEY env var
 function parseArgs(argv) {
   const args = { key: '', customTitle: '', customBody: '' };
+  args.noSound = false;
+  args.noToast = false;
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === '--key' && argv[i + 1]) {
       args.key = argv[++i];
@@ -22,6 +24,10 @@ function parseArgs(argv) {
       args.customTitle = argv[++i];
     } else if (argv[i] === '--body' && argv[i + 1]) {
       args.customBody = argv[++i];
+    } else if (argv[i] === '--no-sound') {
+      args.noSound = true;
+    } else if (argv[i] === '--no-toast') {
+      args.noToast = true;
     } else if (i === 2 && !argv[i].startsWith('--')) {
       // Legacy: first positional arg = custom body
       args.customBody = argv[i];
@@ -33,13 +39,9 @@ function parseArgs(argv) {
 const cliArgs = parseArgs(process.argv);
 const BARK_KEY = cliArgs.key || process.env.BARK_KEY;
 
-if (!BARK_KEY) {
-  // Silent fail — don't write anything to stdout/stderr.
-  // Claude Code Stop hook validates ALL output streams as JSON.
-  process.exit(0);
-}
-
-const BARK_URL = process.env.BARK_URL || `https://api.day.app/${BARK_KEY}`;
+const BARK_URL = BARK_KEY
+  ? (process.env.BARK_URL || `https://api.day.app/${BARK_KEY}`)
+  : '';
 
 // ── Find and read the most recent transcript ────────────────────────
 function findLatestTranscript() {
@@ -139,14 +141,25 @@ if (cliArgs.customTitle || cliArgs.customBody) {
   title = sessionId ? `Claude ${sessionId} ${time}` : `Claude Code ${time}`;
 }
 
-// Send Bark notification (fire-and-forget, no output)
+// 1. Windows desktop notification + sound (runs regardless of Bark key)
 try {
-  const url = `${BARK_URL}/${encodeURIComponent(title)}/${encodeURIComponent(body)}?sound=default`;
-  await fetch(url, { signal: AbortSignal.timeout(10_000) });
-} catch (_) {
-  // Network errors: silent.
-  // Claude Code Stop hook validates ALL stdout/stderr as JSON.
-  // Any output = risk of "JSON validation failed".
+  const winNotify = await import('./notify-windows.mjs');
+  if (!cliArgs.noSound) winNotify.playSound();
+  if (!cliArgs.noToast) winNotify.showToast(title, body);
+} catch {
+  // notify-windows.mjs not available — skip
+}
+
+// 2. Bark push notification (iOS, requires key)
+if (BARK_KEY) {
+  try {
+    const url = `${BARK_URL}/${encodeURIComponent(title)}/${encodeURIComponent(body)}?sound=default`;
+    await fetch(url, { signal: AbortSignal.timeout(10_000) });
+  } catch (_) {
+    // Network errors: silent.
+    // Claude Code Stop hook validates ALL stdout/stderr as JSON.
+    // Any output = risk of "JSON validation failed".
+  }
 }
 
 // Stop hook stdout is validated as JSON by Claude Code's hook engine.
